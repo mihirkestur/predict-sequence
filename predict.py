@@ -1,210 +1,127 @@
-# LSTM for international airline passengers problem with regression framing
-import numpy
-import matplotlib.pyplot as plt
-from pandas import read_csv
-import math
+from random import seed
+from random import randint
+from numpy import array
+from math import ceil
+from math import log10
+from math import sqrt
+from numpy import argmax
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import LSTM
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import mean_squared_error
-# convert an array of values into a dataset matrix
-def create_dataset(dataset, look_back=1):
-	dataX, dataY = [], []
-	for i in range(len(dataset)-look_back-1):
-		a = dataset[i:(i+look_back), 0]
-		dataX.append(a)
-		dataY.append(dataset[i + look_back, 0])
-	return numpy.array(dataX), numpy.array(dataY)
-# fix random seed for reproducibility
-numpy.random.seed(7)
-# load the dataset
-dataframe = read_csv('airline-passengers.csv', usecols=[1], engine='python')
-dataset = dataframe.values
-dataset = dataset.astype('float32')
-# normalize the dataset
-scaler = MinMaxScaler(feature_range=(0, 1))
-dataset = scaler.fit_transform(dataset)
-# split into train and test sets
-train_size = int(len(dataset) * 0.67)
-test_size = len(dataset) - train_size
-train, test = dataset[0:train_size,:], dataset[train_size:len(dataset),:]
-# reshape into X=t and Y=t+1
-look_back = 1
-trainX, trainY = create_dataset(train, look_back)
-testX, testY = create_dataset(test, look_back)
-# reshape input to be [samples, time steps, features]
-trainX = numpy.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
-testX = numpy.reshape(testX, (testX.shape[0], 1, testX.shape[1]))
-# create and fit the LSTM network
+from keras.layers import TimeDistributed
+from keras.layers import RepeatVector
+# generate lists of random integers and their sum
+def random_sum_pairs(n_examples, n_numbers, largest):
+	X, y = list(), list()
+	for i in range(n_examples):
+		in_pattern = [randint(1,largest) for _ in range(n_numbers)]
+		out_pattern = sum(in_pattern)
+		X.append(in_pattern)
+		y.append(out_pattern)
+	return X, y
+# convert data to strings
+def to_string(X, y, n_numbers, largest):
+	max_length = n_numbers * ceil(log10(largest+1)) + n_numbers - 1
+	Xstr = list()
+	for pattern in X:
+		strp = '+'.join([str(n) for n in pattern])
+		strp = ''.join([' ' for _ in range(max_length-len(strp))]) + strp 
+		Xstr.append(strp)
+	max_length = ceil(log10(n_numbers * (largest+1)))
+	ystr = list()
+	for pattern in y:
+		strp = str(pattern)
+		strp = ''.join([' ' for _ in range(max_length-len(strp))]) + strp
+		ystr.append(strp)
+	return Xstr, ystr
+# integer encode strings
+def integer_encode(X, y, alphabet):
+	char_to_int = dict((c, i) for i, c in enumerate(alphabet))
+	Xenc = list()
+	for pattern in X:
+		integer_encoded = [char_to_int[char] for char in pattern]
+		Xenc.append(integer_encoded)
+	yenc = list()
+	for pattern in y:
+		integer_encoded = [char_to_int[char] for char in pattern]
+		yenc.append(integer_encoded)
+	return Xenc, yenc
+# one hot encode
+def one_hot_encode(X, y, max_int):
+	Xenc = list()
+	for seq in X:
+		pattern = list()
+		for index in seq:
+			vector = [0 for _ in range(max_int)]
+			vector[index] = 1
+			pattern.append(vector)
+		Xenc.append(pattern)
+	yenc = list()
+	for seq in y:
+		pattern = list()
+		for index in seq:
+			vector = [0 for _ in range(max_int)]
+			vector[index] = 1
+			pattern.append(vector)
+		yenc.append(pattern)
+	return Xenc, yenc
+# generate an encoded dataset
+def generate_data(n_samples, n_numbers, largest, alphabet):
+	# generate pairs
+	X, y = random_sum_pairs(n_samples, n_numbers, largest)
+	# convert to strings
+	X, y = to_string(X, y, n_numbers, largest)
+	# integer encode
+	X, y = integer_encode(X, y, alphabet)
+	# one hot encode
+	X, y = one_hot_encode(X, y, len(alphabet))
+	# return as numpy arrays
+	X, y = array(X), array(y)
+	return X, y
+# invert encoding
+def invert(seq, alphabet):
+	int_to_char = dict((i, c) for i, c in enumerate(alphabet))
+	strings = list()
+	for pattern in seq:
+		string = int_to_char[argmax(pattern)]
+		strings.append(string)
+	return ''.join(strings)
+# configure problem
+# number of math terms
+n_terms = 3
+# largest value for any single input digit
+largest = 10
+# scope of possible symbols for each input or output time step
+alphabet = [str(x) for x in range(10)] + ['+',' ']
+# size of alphabet: (12 for 0-9, + and
+n_chars = len(alphabet)
+# length of encoded input sequence (8 for 10+10+10)
+n_in_seq_length = n_terms * ceil(log10(largest+1)) + n_terms - 1
+# length of encoded output sequence (2 for 30 )
+n_out_seq_length = ceil(log10(n_terms * (largest+1)))
+# define LSTM
 model = Sequential()
-model.add(LSTM(4, input_shape=(1, look_back)))
-model.add(Dense(1))
-model.compile(loss='mean_squared_error', optimizer='adam')
-model.fit(trainX, trainY, epochs=100, batch_size=1, verbose=2)
-# make predictions
-trainPredict = model.predict(trainX)
-testPredict = model.predict(testX)
-# invert predictions
-trainPredict = scaler.inverse_transform(trainPredict)
-trainY = scaler.inverse_transform([trainY])
-testPredict = scaler.inverse_transform(testPredict)
-testY = scaler.inverse_transform([testY])
-# calculate root mean squared error
-trainScore = math.sqrt(mean_squared_error(trainY[0], trainPredict[:,0]))
-print('Train Score: %.2f RMSE' % (trainScore))
-testScore = math.sqrt(mean_squared_error(testY[0], testPredict[:,0]))
-print('Test Score: %.2f RMSE' % (testScore))
-# shift train predictions for plotting
-trainPredictPlot = numpy.empty_like(dataset)
-trainPredictPlot[:, :] = numpy.nan
-trainPredictPlot[look_back:len(trainPredict)+look_back, :] = trainPredict
-# shift test predictions for plotting
-testPredictPlot = numpy.empty_like(dataset)
-testPredictPlot[:, :] = numpy.nan
-testPredictPlot[len(trainPredict)+(look_back*2)+1:len(dataset)-1, :] = testPredict
-# plot baseline and predictions
-plt.plot(scaler.inverse_transform(dataset))
-plt.plot(trainPredictPlot)
-plt.plot(testPredictPlot)
-plt.show()
-1
-2
-3
-4
-5
-6
-7
-8
-9
-10
-11
-12
-13
-14
-15
-16
-17
-18
-19
-20
-21
-22
-23
-24
-25
-26
-27
-28
-29
-30
-31
-32
-33
-34
-35
-36
-37
-38
-39
-40
-41
-42
-43
-44
-45
-46
-47
-48
-49
-50
-51
-52
-53
-54
-55
-56
-57
-58
-59
-60
-61
-62
-63
-64
-65
-66
-67
-68
-69
-70
-# LSTM for international airline passengers problem with regression framing
-import numpy
-import matplotlib.pyplot as plt
-from pandas import read_csv
-import math
-from keras.models import Sequential
-from keras.layers import Dense
-from keras.layers import LSTM
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import mean_squared_error
-# convert an array of values into a dataset matrix
-def create_dataset(dataset, look_back=1):
-	dataX, dataY = [], []
-	for i in range(len(dataset)-look_back-1):
-		a = dataset[i:(i+look_back), 0]
-		dataX.append(a)
-		dataY.append(dataset[i + look_back, 0])
-	return numpy.array(dataX), numpy.array(dataY)
-# fix random seed for reproducibility
-numpy.random.seed(7)
-# load the dataset
-dataframe = read_csv('airline-passengers.csv', usecols=[1], engine='python')
-dataset = dataframe.values
-dataset = dataset.astype('float32')
-# normalize the dataset
-scaler = MinMaxScaler(feature_range=(0, 1))
-dataset = scaler.fit_transform(dataset)
-# split into train and test sets
-train_size = int(len(dataset) * 0.67)
-test_size = len(dataset) - train_size
-train, test = dataset[0:train_size,:], dataset[train_size:len(dataset),:]
-# reshape into X=t and Y=t+1
-look_back = 1
-trainX, trainY = create_dataset(train, look_back)
-testX, testY = create_dataset(test, look_back)
-# reshape input to be [samples, time steps, features]
-trainX = numpy.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
-testX = numpy.reshape(testX, (testX.shape[0], 1, testX.shape[1]))
-# create and fit the LSTM network
-model = Sequential()
-model.add(LSTM(4, input_shape=(1, look_back)))
-model.add(Dense(1))
-model.compile(loss='mean_squared_error', optimizer='adam')
-model.fit(trainX, trainY, epochs=100, batch_size=1, verbose=2)
-# make predictions
-trainPredict = model.predict(trainX)
-testPredict = model.predict(testX)
-# invert predictions
-trainPredict = scaler.inverse_transform(trainPredict)
-trainY = scaler.inverse_transform([trainY])
-testPredict = scaler.inverse_transform(testPredict)
-testY = scaler.inverse_transform([testY])
-# calculate root mean squared error
-trainScore = math.sqrt(mean_squared_error(trainY[0], trainPredict[:,0]))
-print('Train Score: %.2f RMSE' % (trainScore))
-testScore = math.sqrt(mean_squared_error(testY[0], testPredict[:,0]))
-print('Test Score: %.2f RMSE' % (testScore))
-# shift train predictions for plotting
-trainPredictPlot = numpy.empty_like(dataset)
-trainPredictPlot[:, :] = numpy.nan
-trainPredictPlot[look_back:len(trainPredict)+look_back, :] = trainPredict
-# shift test predictions for plotting
-testPredictPlot = numpy.empty_like(dataset)
-testPredictPlot[:, :] = numpy.nan
-testPredictPlot[len(trainPredict)+(look_back*2)+1:len(dataset)-1, :] = testPredict
-# plot baseline and predictions
-plt.plot(scaler.inverse_transform(dataset))
-plt.plot(trainPredictPlot)
-plt.plot(testPredictPlot)
-plt.show()
+model.add(LSTM(75, input_shape=(n_in_seq_length, n_chars)))
+model.add(RepeatVector(n_out_seq_length))
+model.add(LSTM(50, return_sequences=True))
+model.add(TimeDistributed(Dense(n_chars, activation= 'softmax' )))
+model.compile(loss= 'categorical_crossentropy' , optimizer= 'adam' , metrics=[ 'accuracy' ])
+print(model.summary())
+# fit LSTM
+X, y = generate_data(75000, n_terms, largest, alphabet)
+model.fit(X, y, epochs=1, batch_size=32)
+# evaluate LSTM
+X, y = generate_data(100, n_terms, largest, alphabet)
+loss, acc = model.evaluate(X, y, verbose=0)
+print('Loss: ', loss,'Accuracy: %f',acc*100)
+# predict
+for _ in range(10):
+	# generate an input-output pair
+	X, y = generate_data(1, n_terms, largest, alphabet)
+	# make prediction
+	yhat = model.predict(X, verbose=0)
+	# decode input, expected and predicted
+	in_seq = invert(X[0], alphabet)
+	out_seq = invert(y[0], alphabet)
+	predicted = invert(yhat[0], alphabet)
+	print(in_seq,' = ', predicted ,'(expect', out_seq,' )')
