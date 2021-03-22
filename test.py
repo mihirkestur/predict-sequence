@@ -14,14 +14,13 @@ model = Sequential()
 model.add(LSTM((1),batch_input_shape=(None,5,1),return_sequences=False))
 #model.add(Dense(100))
 model.compile(loss='mean_absolute_error', optimizer='adam',metrics=['accuracy'])
-his = model.fit(x_train, y_train, epochs=400, batch_size=1, verbose=2,validation_data=(x_test, y_test))
-print(model.predict(np.array([[[0.01],[0.02],[0.03],[0.04],[0.05]]], dtype=np.float32))*100)
-
-"""
+his = model.fit(x_train, y_train, epochs=2, batch_size=1, verbose=2,validation_data=(x_test, y_test))
+#print(model.predict(np.array([[[10.00],[10.01],[10.02],[10.03],[10.04]]], dtype=np.float32))*100)
+#print(model.predict(x_test))
 res = model.predict(x_test)
 plt.scatter(range(20),res,c='r')
 plt.scatter(range(20),y_test,c='g')
 plt.show()
 plt.plot(his.history['loss'])
 plt.show()
-"""
+print(model.predict_classes(np.array([[[1],[2],[3],[4],[5]]], dtype=np.float32)))
