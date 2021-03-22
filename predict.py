@@ -124,4 +124,4 @@ for _ in range(10):
 	in_seq = invert(X[0], alphabet)
 	out_seq = invert(y[0], alphabet)
 	predicted = invert(yhat[0], alphabet)
-	print(in_seq,' = ', predicted ,'(expect', out_seq,' )')
+	print(in_seq,' = ', predicted ,'(expect', out_seq,')')
