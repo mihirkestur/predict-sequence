@@ -1,6 +1,5 @@
 import tensorflow as tf
 import numpy as np
-import pickle
 from tensorflow import keras
 
 def train_predict(sequence):
@@ -16,6 +15,5 @@ def train_predict(sequence):
     #print(results)
     #print(rounded_results)
     #model.save("test.h5")
-    print(model.summary())
+    #print(model.summary())
     return rounded_results
-print(train_predict([1,2,3,4,5,6,7,8,9]))
