@@ -15,8 +15,8 @@
  <div class="login">
 	<h1>Sequence prediction</h1>
     <form action="{{ url_for('predict')}}"method="post">
-    	<input type="text" name="Sequence" placeholder="Enter Sequence (eg: 1,2,3)" required="required" />
-      <!--input type="text" name="Market_Category" placeholder="Market_Category" required="required" /-->
+    	<input type="text" name="Sequence" placeholder="Enter Sequence (eg: 1,2,3) and wait for few moments" required="required" />
+      <input type="text" name="next" placeholder="Number of values to predict" required="required" />
       <button type="submit" class="btn btn-primary btn-block btn-large">Predict</button>
     </form>
    <br>
