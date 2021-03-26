@@ -24,6 +24,5 @@ rsa==4.7.2
 scikit-learn==0.24.1
 six==1.15.0
 sklearn==0.0
-tensorflow==2.4.1
-tensorflow-estimator==2.4.0
+tensorflow-cpu==2.4.1
 urllib3==1.26.4
